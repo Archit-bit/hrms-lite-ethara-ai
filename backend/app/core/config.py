@@ -48,6 +48,15 @@ def _build_postgres_database_url() -> tuple[str, str]:
     return database_url, schema_name
 
 
+def _normalize_database_url(database_url: str) -> str:
+    normalized_url = database_url.strip()
+    if normalized_url.startswith("postgres://"):
+        return normalized_url.replace("postgres://", "postgresql+psycopg://", 1)
+    if normalized_url.startswith("postgresql://") and "+psycopg" not in normalized_url.split("://", 1)[0]:
+        return normalized_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return normalized_url
+
+
 @lru_cache(maxsize=8)
 def get_settings(database_url: str | None = None) -> Settings:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -63,7 +72,7 @@ def get_settings(database_url: str | None = None) -> Settings:
     if not selected_database_url:
         explicit_database_url = os.getenv("DATABASE_URL", "").strip()
         if explicit_database_url:
-            selected_database_url = explicit_database_url
+            selected_database_url = _normalize_database_url(explicit_database_url)
             db_schema = os.getenv("POSTGRES_SCHEMA", "").strip() or None
         else:
             db_engine = os.getenv("DB_ENGINE", "sqlite").strip().lower()
@@ -76,7 +85,7 @@ def get_settings(database_url: str | None = None) -> Settings:
                 selected_database_url = f"sqlite:///{sqlite_path}"
 
     return Settings(
-        database_url=selected_database_url or default_database_url,
+        database_url=_normalize_database_url(selected_database_url or default_database_url),
         cors_origins=[origin.strip() for origin in raw_cors_origins.split(",") if origin.strip()],
         db_schema=db_schema,
     )

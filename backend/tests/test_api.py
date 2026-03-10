@@ -6,6 +6,7 @@ from pathlib import Path
 
 import httpx
 
+from app.core.config import get_settings
 from app.db.base import Base
 from app.main import create_app
 
@@ -97,3 +98,14 @@ def test_validation_errors_return_meaningful_messages(tmp_path: Path) -> None:
     body = response.json()
     assert body["message"] == "Validation failed."
     assert len(body["errors"]) >= 2
+
+
+def test_database_url_is_normalized_for_railway_postgres(monkeypatch) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("DATABASE_URL", "postgresql://demo:secret@db.railway.internal:5432/hrms_lite")
+
+    settings = get_settings()
+
+    assert settings.database_url == "postgresql+psycopg://demo:secret@db.railway.internal:5432/hrms_lite"
+
+    get_settings.cache_clear()
